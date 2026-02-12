@@ -3,7 +3,7 @@
 <plist version="1.0">
   <dict>
     <key>CFBundleExecutable</key>
-    <string>mac-akaza</string>
+    <string>AkazaIME</string>
     <key>CFBundleDisplayName</key>
     <string>Akaza</string>
     <key>CFBundleName</key>
