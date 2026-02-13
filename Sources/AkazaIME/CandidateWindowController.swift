@@ -38,21 +38,43 @@ class CandidateWindowController {
     }
 
     func show(candidates: [ConvertCandidate], selectedIndex: Int, cursorRect: NSRect) {
+        clearLabels()
+
+        guard !candidates.isEmpty else {
+            hide()
+            return
+        }
+
+        let pageSize = maxDisplayCount
+        let currentPage = selectedIndex / pageSize
+        let pageStart = currentPage * pageSize
+        let pageEnd = min(pageStart + pageSize, candidates.count)
+        let totalPages = (candidates.count + pageSize - 1) / pageSize
+
+        addCandidateLabels(candidates: candidates, pageStart: pageStart, pageEnd: pageEnd, selectedIndex: selectedIndex)
+
+        if totalPages > 1 {
+            addPageIndicator(currentPage: currentPage, totalPages: totalPages)
+        }
+
+        positionPanel(cursorRect: cursorRect)
+    }
+
+    private func clearLabels() {
         for label in candidateLabels {
             stackView.removeArrangedSubview(label)
             label.removeFromSuperview()
         }
         candidateLabels.removeAll()
+    }
 
-        let displayCount = min(candidates.count, maxDisplayCount)
-        guard displayCount > 0 else {
-            hide()
-            return
-        }
-
-        for idx in 0..<displayCount {
+    private func addCandidateLabels(
+        candidates: [ConvertCandidate], pageStart: Int, pageEnd: Int, selectedIndex: Int
+    ) {
+        for idx in pageStart..<pageEnd {
             let candidate = candidates[idx]
-            let label = NSTextField(labelWithString: "\(idx + 1). \(candidate.surface)")
+            let displayNumber = idx - pageStart + 1
+            let label = NSTextField(labelWithString: "\(displayNumber). \(candidate.surface)")
             label.font = NSFont.systemFont(ofSize: 14)
             label.translatesAutoresizingMaskIntoConstraints = false
 
@@ -69,7 +91,19 @@ class CandidateWindowController {
             stackView.addArrangedSubview(label)
             candidateLabels.append(label)
         }
+    }
 
+    private func addPageIndicator(currentPage: Int, totalPages: Int) {
+        let pageIndicator = NSTextField(labelWithString: "[\(currentPage + 1)/\(totalPages)]")
+        pageIndicator.font = NSFont.systemFont(ofSize: 12)
+        pageIndicator.textColor = NSColor.secondaryLabelColor
+        pageIndicator.alignment = .center
+        pageIndicator.translatesAutoresizingMaskIntoConstraints = false
+        stackView.addArrangedSubview(pageIndicator)
+        candidateLabels.append(pageIndicator)
+    }
+
+    private func positionPanel(cursorRect: NSRect) {
         stackView.layoutSubtreeIfNeeded()
         let contentSize = stackView.fittingSize
         let panelWidth = max(contentSize.width + 16, 120)
