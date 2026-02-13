@@ -37,5 +37,10 @@ guard let server = IMKServer(name: connectionName, bundleIdentifier: Bundle.main
 }
 _ = server // IMKServer を保持
 
+let akazaServerProcess = AkazaServerProcess()
+let akazaClient = JSONRPCClient(serverProcess: akazaServerProcess)
+akazaServerProcess.start()
+akazaClient.startReaderLoop()
+
 NSLog("AkazaIME: IMKServer created successfully")
 NSApplication.shared.run()
