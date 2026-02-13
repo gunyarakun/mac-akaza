@@ -95,9 +95,23 @@ class AkazaInputController: IMKInputController {
         if let flushed = romajiConverter.flush() {
             text += flushed
         }
-        if !text.isEmpty {
-            client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
+        guard !text.isEmpty else {
+            composedHiragana = ""
+            return
         }
+
+        // かな漢字変換を試行
+        if let result = akazaClient.convertSync(yomi: text) {
+            let converted = result.map { $0.first?.surface ?? "" }.joined()
+            if !converted.isEmpty {
+                client.insertText(converted, replacementRange: NSRange(location: NSNotFound, length: 0))
+                composedHiragana = ""
+                return
+            }
+        }
+
+        // フォールバック: 生ひらがなを確定
+        client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
         composedHiragana = ""
     }
 
