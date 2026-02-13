@@ -1,21 +1,22 @@
 OUTDIR = out/
+APP = $(OUTDIR)/Akaza.app
+INSTALL_DIR = $(HOME)/Library/Input Methods
 
-all: target/release/mac-akaza
+.PHONY: all build install clean
 
-target/release/mac-akaza: src/main.rs src/imk.rs
-	cargo build --release
+all: build
 
-install: target/release/mac-akaza
-	mkdir -p $(OUTDIR)/Akaza.app/Contents/MacOS
-	mkdir -p $(OUTDIR)/Akaza.app/Contents/Resources
-	rm -rf ~/Library/'Input Methods'/Akaza.app
-	cp Info.plist $(OUTDIR)/Akaza.app/Contents/
-	cp target/release/mac-akaza $(OUTDIR)/Akaza.app/Contents/MacOS
-	cp -r resources/* $(OUTDIR)/Akaza.app/Contents/Resources/
-	cp -a $(OUTDIR)/Akaza.app ~/Library/'Input Methods'
+build:
+	swift build -c release
+
+install: build
+	mkdir -p $(APP)/Contents/MacOS
+	mkdir -p $(APP)/Contents/Resources
+	rm -rf "$(INSTALL_DIR)/Akaza.app"
+	cp Info.plist $(APP)/Contents/
+	cp .build/release/AkazaIME $(APP)/Contents/MacOS/
+	cp -r resources/* $(APP)/Contents/Resources/
+	cp -a $(APP) "$(INSTALL_DIR)/"
 
 clean:
-	rm -rf target/ $(OUTDIR)/
-
-.PHONY: all clean install
-
+	rm -rf .build/ $(OUTDIR)/
