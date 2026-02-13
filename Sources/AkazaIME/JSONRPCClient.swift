@@ -138,7 +138,8 @@ class JSONRPCClient {
         }
 
         if let result = json["result"] {
-            if let resultData = try? JSONSerialization.data(withJSONObject: result) {
+            if JSONSerialization.isValidJSONObject(result),
+               let resultData = try? JSONSerialization.data(withJSONObject: result) {
                 completePending(id: id, data: resultData)
             } else {
                 completePending(id: id, data: nil)
