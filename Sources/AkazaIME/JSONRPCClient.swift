@@ -8,6 +8,11 @@ struct ConvertCandidate: Decodable {
 
 typealias ConvertResult = [[ConvertCandidate]]
 
+struct UserDictEntry: Decodable {
+    let yomi: String
+    let surfaces: [String]
+}
+
 class JSONRPCClient {
     private let serverProcess: AkazaServerProcess
     private var nextID = 1
@@ -60,6 +65,26 @@ class JSONRPCClient {
             "candidates": candidates.map { ["surface": $0.surface, "yomi": $0.yomi] }
         ]
         _ = sendRequestSync(method: "learn", params: params)
+    }
+
+    func userDictListSync() -> [UserDictEntry]? {
+        guard let data = sendRequestSync(method: "user_dict_list", params: [:]) else { return nil }
+        do {
+            return try JSONDecoder().decode([UserDictEntry].self, from: data)
+        } catch {
+            NSLog("AkazaIME: failed to decode user_dict_list result: \(error)")
+            return nil
+        }
+    }
+
+    func userDictAddSync(yomi: String, surface: String) -> Bool {
+        let params: [String: Any] = ["yomi": yomi, "surface": surface]
+        return sendRequestSync(method: "user_dict_add", params: params) != nil
+    }
+
+    func userDictDeleteSync(yomi: String, surface: String) -> Bool {
+        let params: [String: Any] = ["yomi": yomi, "surface": surface]
+        return sendRequestSync(method: "user_dict_delete", params: params) != nil
     }
 
     func convertSync(yomi: String, forceRanges: [[Int]]? = nil) -> ConvertResult? {

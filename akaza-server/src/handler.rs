@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::ops::Range;
 
+use libakaza::dict::skk::write::write_skk_dict;
 use libakaza::engine::base::HenkanEngine;
 use libakaza::engine::bigram_word_viterbi_engine::BigramWordViterbiEngine;
 use libakaza::graph::candidate::Candidate;
@@ -12,11 +14,12 @@ use crate::jsonrpc::*;
 
 pub struct Handler<U: SystemUnigramLM, B: SystemBigramLM, KD: KanaKanjiDict> {
     engine: BigramWordViterbiEngine<U, B, KD>,
+    dict_path: String,
 }
 
 impl<U: SystemUnigramLM, B: SystemBigramLM, KD: KanaKanjiDict> Handler<U, B, KD> {
-    pub fn new(engine: BigramWordViterbiEngine<U, B, KD>) -> Self {
-        Self { engine }
+    pub fn new(engine: BigramWordViterbiEngine<U, B, KD>, dict_path: String) -> Self {
+        Self { engine, dict_path }
     }
 
     pub fn handle_request(&mut self, line: &str) -> String {
@@ -35,6 +38,9 @@ impl<U: SystemUnigramLM, B: SystemBigramLM, KD: KanaKanjiDict> Handler<U, B, KD>
             "convert" => self.handle_convert(&request),
             "convert_k_best" => self.handle_convert_k_best(&request),
             "learn" => self.handle_learn(&request),
+            "user_dict_list" => self.handle_user_dict_list(&request),
+            "user_dict_add" => self.handle_user_dict_add(&request),
+            "user_dict_delete" => self.handle_user_dict_delete(&request),
             _ => Response::error(
                 request.id,
                 METHOD_NOT_FOUND,
@@ -135,6 +141,131 @@ impl<U: SystemUnigramLM, B: SystemBigramLM, KD: KanaKanjiDict> Handler<U, B, KD>
         info!("Learned {} candidates", candidates.len());
 
         Response::success(request.id.clone(), Value::Bool(true))
+    }
+
+    fn handle_user_dict_list(&self, request: &Request) -> Response {
+        match self.engine.user_data.lock() {
+            Ok(user_data) => {
+                let mut entries: Vec<UserDictEntry> = user_data
+                    .dict
+                    .iter()
+                    .map(|(yomi, surfaces)| UserDictEntry {
+                        yomi: yomi.clone(),
+                        surfaces: surfaces.clone(),
+                    })
+                    .collect();
+                entries.sort_by(|a, b| a.yomi.cmp(&b.yomi));
+                Response::success(request.id.clone(), serde_json::to_value(entries).unwrap())
+            }
+            Err(e) => {
+                error!("user_dict_list: failed to lock user_data: {}", e);
+                Response::error(
+                    request.id.clone(),
+                    INTERNAL_ERROR,
+                    "Failed to access user data".to_string(),
+                )
+            }
+        }
+    }
+
+    fn handle_user_dict_add(&self, request: &Request) -> Response {
+        let params: UserDictAddParams = match serde_json::from_value(request.params.clone()) {
+            Ok(p) => p,
+            Err(e) => {
+                return Response::error(
+                    request.id.clone(),
+                    INVALID_PARAMS,
+                    format!("Invalid params: {}", e),
+                );
+            }
+        };
+
+        match self.engine.user_data.lock() {
+            Ok(mut user_data) => {
+                {
+                    let surfaces = user_data.dict.entry(params.yomi.clone()).or_default();
+                    if !surfaces.contains(&params.surface) {
+                        surfaces.push(params.surface.clone());
+                    }
+                }
+
+                // Persist to disk
+                let dict: HashMap<String, Vec<String>> =
+                    user_data.dict.clone().into_iter().collect();
+                if let Err(e) = write_skk_dict(&self.dict_path, vec![dict]) {
+                    error!("user_dict_add: failed to write dict: {}", e);
+                    return Response::error(
+                        request.id.clone(),
+                        INTERNAL_ERROR,
+                        format!("Failed to save dictionary: {}", e),
+                    );
+                }
+
+                info!(
+                    "Added user dict entry: {} -> {}",
+                    params.yomi, params.surface
+                );
+                Response::success(request.id.clone(), Value::Bool(true))
+            }
+            Err(e) => {
+                error!("user_dict_add: failed to lock user_data: {}", e);
+                Response::error(
+                    request.id.clone(),
+                    INTERNAL_ERROR,
+                    "Failed to access user data".to_string(),
+                )
+            }
+        }
+    }
+
+    fn handle_user_dict_delete(&self, request: &Request) -> Response {
+        let params: UserDictDeleteParams = match serde_json::from_value(request.params.clone()) {
+            Ok(p) => p,
+            Err(e) => {
+                return Response::error(
+                    request.id.clone(),
+                    INVALID_PARAMS,
+                    format!("Invalid params: {}", e),
+                );
+            }
+        };
+
+        match self.engine.user_data.lock() {
+            Ok(mut user_data) => {
+                if let Some(surfaces) = user_data.dict.get_mut(&params.yomi) {
+                    surfaces.retain(|s| s != &params.surface);
+                    if surfaces.is_empty() {
+                        user_data.dict.remove(&params.yomi);
+                    }
+                }
+
+                // Persist to disk
+                let dict: HashMap<String, Vec<String>> =
+                    user_data.dict.clone().into_iter().collect();
+                if let Err(e) = write_skk_dict(&self.dict_path, vec![dict]) {
+                    error!("user_dict_delete: failed to write dict: {}", e);
+                    return Response::error(
+                        request.id.clone(),
+                        INTERNAL_ERROR,
+                        format!("Failed to save dictionary: {}", e),
+                    );
+                }
+
+                info!(
+                    "Deleted user dict entry: {} / {}",
+                    params.yomi, params.surface
+                );
+                Response::success(request.id.clone(), Value::Bool(true))
+            }
+            Err(e) => {
+                error!("user_dict_delete: failed to lock user_data: {}", e);
+                Response::error(
+                    request.id.clone(),
+                    INTERNAL_ERROR,
+                    "Failed to access user data".to_string(),
+                )
+            }
+        }
     }
 
     fn clauses_to_json(clauses: &[Vec<Candidate>]) -> Value {

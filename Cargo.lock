@@ -21,6 +21,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
+ "xdg",
 ]
 
 [[package]]

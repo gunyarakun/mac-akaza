@@ -41,6 +41,24 @@ pub struct LearnCandidate {
     pub yomi: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UserDictAddParams {
+    pub yomi: String,
+    pub surface: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UserDictDeleteParams {
+    pub yomi: String,
+    pub surface: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UserDictEntry {
+    pub yomi: String,
+    pub surfaces: Vec<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct CandidateResult {
     pub surface: String,
