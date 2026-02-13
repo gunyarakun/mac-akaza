@@ -133,7 +133,7 @@ class AkazaInputController: IMKInputController {
             for result in results {
                 switch result {
                 case .converted(let hiragana):
-                    composedHiragana += hiragana
+                    composedHiragana += applyPunctuationStyle(hiragana)
                 case .pending:
                     break
                 case .passthrough(let character):
@@ -193,6 +193,28 @@ class AkazaInputController: IMKInputController {
         composedHiragana = ""
         romajiConverter.clear()
         Self.candidateWindow.hide()
+    }
+
+    // MARK: - Punctuation style
+
+    private func applyPunctuationStyle(_ text: String) -> String {
+        guard Settings.shared.punctuationStyle == .commaPeriod else { return text }
+        return text.replacingOccurrences(of: "。", with: "．").replacingOccurrences(of: "、", with: "，")
+    }
+
+    // MARK: - Menu
+
+    override func menu() -> NSMenu! {
+        let menu = NSMenu()
+        let settingsItem = NSMenuItem(title: "設定...", action: #selector(openSettings(_:)), keyEquivalent: "")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+        return menu
+    }
+
+    @objc func openSettings(_ sender: Any?) {
+        PreferencesWindowController.shared.showWindow()
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     // MARK: - IMKInputController overrides

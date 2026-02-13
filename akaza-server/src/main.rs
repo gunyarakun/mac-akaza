@@ -2,6 +2,7 @@ mod handler;
 mod jsonrpc;
 
 use std::io::{self, BufRead, Write};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
@@ -43,7 +44,14 @@ fn main() -> Result<()> {
 
     info!("Engine initialized successfully");
 
-    let mut handler = handler::Handler::new(engine);
+    let basedir = xdg::BaseDirectories::with_prefix("akaza")?;
+    let dict_path = basedir
+        .place_data_file(Path::new("SKK-JISYO.user"))?
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    let mut handler = handler::Handler::new(engine, dict_path);
 
     let stdin = io::stdin();
     let mut stdout = io::stdout();
