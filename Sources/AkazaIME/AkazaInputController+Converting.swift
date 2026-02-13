@@ -97,7 +97,10 @@ extension AkazaInputController {
 
     private func handleNumberKeyInConverting(number: Int, client: any IMKTextInput) -> Bool {
         guard case .converting(var session) = inputState else { return false }
-        if session.selectCandidate(number: number) {
+        let pageSize = 9
+        let currentPage = session.focusedSelectedIndex / pageSize
+        let absoluteIndex = currentPage * pageSize + number  // number は 1-based、selectCandidate も 1-based
+        if session.selectCandidate(number: absoluteIndex) {
             inputState = .converting(session)
             commitConvertingText(client: client)
         }
