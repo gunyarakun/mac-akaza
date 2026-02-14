@@ -129,6 +129,11 @@ class AkazaInputController: IMKInputController {
             return false
         }
         for char in characters {
+            // Skip control characters (e.g. Ctrl+P = 0x10, DEL = 0x7F)
+            let scalar = char.unicodeScalars.first!.value
+            if scalar < 0x20 || scalar == 0x7F {
+                return false
+            }
             let results = romajiConverter.feed(char)
             for result in results {
                 switch result {
