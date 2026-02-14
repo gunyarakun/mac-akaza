@@ -8,10 +8,15 @@ class AkazaInputController: IMKInputController {
     var inputState: InputState = .composing
     static let candidateWindow = CandidateWindowController()
 
+    var pendingSuggestRequestID: Int?
+    var latestSuggestYomi: String?
+
     var hasPreedit: Bool {
         switch inputState {
         case .composing:
             return !composedHiragana.isEmpty || !romajiConverter.pendingRomaji.isEmpty
+        case .suggesting:
+            return true
         case .converting:
             return true
         }
@@ -39,6 +44,8 @@ class AkazaInputController: IMKInputController {
         switch inputState {
         case .composing:
             return handleComposingState(event: event, keyCode: keyCode, client: client)
+        case .suggesting:
+            return handleSuggestingState(event: event, keyCode: keyCode, client: client)
         case .converting:
             return handleConvertingState(event: event, keyCode: keyCode, client: client)
         }
@@ -111,14 +118,16 @@ class AkazaInputController: IMKInputController {
         return true
     }
 
-    private func handleBackspaceInComposing(client: any IMKTextInput) -> Bool {
+    func handleBackspaceInComposing(client: any IMKTextInput) -> Bool {
         if romajiConverter.backspace() {
             updateComposingMarkedText(client: client)
+            scheduleSuggest(client: client)
             return true
         }
         if !composedHiragana.isEmpty {
             composedHiragana.removeLast()
             updateComposingMarkedText(client: client)
+            scheduleSuggest(client: client)
             return true
         }
         return false
@@ -151,6 +160,7 @@ class AkazaInputController: IMKInputController {
             }
         }
         updateComposingMarkedText(client: client)
+        scheduleSuggest(client: client)
         return true
     }
 
@@ -160,6 +170,8 @@ class AkazaInputController: IMKInputController {
         switch inputState {
         case .composing:
             commitComposingText(client: client)
+        case .suggesting:
+            commitSuggestingText(client: client)
         case .converting:
             commitConvertingText(client: client)
         }
@@ -187,10 +199,46 @@ class AkazaInputController: IMKInputController {
     }
 
     func resetToComposing() {
+        cancelPendingSuggest()
         inputState = .composing
         composedHiragana = ""
         romajiConverter.clear()
         Self.candidateWindow.hide()
+    }
+
+    // MARK: - Suggest scheduling
+
+    func scheduleSuggest(client: any IMKTextInput) {
+        cancelPendingSuggest()
+
+        let yomi = composedHiragana
+        guard !yomi.isEmpty else {
+            latestSuggestYomi = nil
+            Self.candidateWindow.hide()
+            return
+        }
+        guard yomi != latestSuggestYomi else { return }
+
+        latestSuggestYomi = yomi
+        let requestID = akazaClient.convertKBestAsync(yomi: yomi, maxPaths: 9) { [weak self] paths in
+            guard let self = self else { return }
+            guard case .composing = self.inputState else { return }
+            guard let paths = paths, !paths.isEmpty else { return }
+            guard self.composedHiragana == yomi else { return }
+
+            let session = SuggestSession(originalHiragana: yomi, paths: paths)
+            self.inputState = .suggesting(session)
+            self.updateSuggestingMarkedText(client: client)
+            self.showSuggestCandidateWindow(client: client)
+        }
+        pendingSuggestRequestID = requestID
+    }
+
+    func cancelPendingSuggest() {
+        if let id = pendingSuggestRequestID {
+            akazaClient.cancelRequest(id: id)
+            pendingSuggestRequestID = nil
+        }
     }
 
     // MARK: - Punctuation style
@@ -218,6 +266,7 @@ class AkazaInputController: IMKInputController {
     // MARK: - IMKInputController overrides
 
     override func deactivateServer(_ sender: Any!) {
+        cancelPendingSuggest()
         if let client = sender as? (any IMKTextInput) {
             if hasPreedit {
                 commitCurrentState(client: client)
