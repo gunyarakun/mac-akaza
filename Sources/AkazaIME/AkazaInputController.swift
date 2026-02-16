@@ -56,6 +56,10 @@ class AkazaInputController: IMKInputController {
             return handleEscapeInComposing(client: client)
         case 51: // Backspace
             return handleBackspaceInComposing(client: client)
+        case 123, 124, 125, 126: // Arrow keys (Left, Right, Down, Up)
+            // If we have preedit, consume the arrow key without doing anything
+            // If no preedit, let the system handle it (return false)
+            return hasPreedit
         default:
             return handleCharacterInput(event: event, client: client)
         }
