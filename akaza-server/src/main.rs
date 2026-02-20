@@ -9,6 +9,8 @@ use anyhow::Result;
 use libakaza::config::EngineConfig;
 use libakaza::engine::bigram_word_viterbi_engine::BigramWordViterbiEngineBuilder;
 use libakaza::graph::reranking::ReRankingWeights;
+use libakaza::lm::system_bigram::MarisaSystemBigramLM;
+use libakaza::lm::system_unigram_lm::MarisaSystemUnigramLM;
 use libakaza::user_side_data::user_data::UserData;
 use log::info;
 
@@ -44,6 +46,9 @@ fn main() -> Result<()> {
 
     info!("Engine initialized successfully");
 
+    let unigram_lm = MarisaSystemUnigramLM::load(&format!("{}/unigram.model", model_dir))?;
+    let bigram_lm = MarisaSystemBigramLM::load(&format!("{}/bigram.model", model_dir))?;
+
     let basedir = xdg::BaseDirectories::with_prefix("akaza")?;
     let dict_path = basedir
         .place_data_file(Path::new("SKK-JISYO.user"))?
@@ -51,7 +56,8 @@ fn main() -> Result<()> {
         .unwrap()
         .to_string();
 
-    let mut handler = handler::Handler::new(engine, dict_path, model_dir.clone());
+    let mut handler =
+        handler::Handler::new(engine, dict_path, model_dir.clone(), unigram_lm, bigram_lm);
 
     let stdin = io::stdin();
     let mut stdout = io::stdout();
