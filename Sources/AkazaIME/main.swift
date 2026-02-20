@@ -39,8 +39,15 @@ _ = server // IMKServer を保持
 
 let akazaServerProcess = AkazaServerProcess()
 let akazaClient = JSONRPCClient(serverProcess: akazaServerProcess)
-akazaServerProcess.start()
-akazaClient.startReaderLoop()
+
+// SKK-JISYO.L がなければバックグラウンドでダウンロードしてから起動
+// 既にある場合はそのまま即起動
+akazaServerProcess.downloadSKKDictIfNeeded {
+    DispatchQueue.main.async {
+        akazaServerProcess.start()
+        akazaClient.startReaderLoop()
+    }
+}
 
 NSLog("AkazaIME: IMKServer created successfully")
 NSApplication.shared.run()
