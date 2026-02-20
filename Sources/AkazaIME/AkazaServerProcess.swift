@@ -1,5 +1,16 @@
 import Cocoa
 
+private let skkJisyoLURL = "https://raw.githubusercontent.com/skk-dev/dict/master/SKK-JISYO.L"
+
+private func skkJisyoLPath() -> URL? {
+    guard let xdgData = ProcessInfo.processInfo.environment["XDG_DATA_HOME"]
+        .map({ URL(fileURLWithPath: $0) })
+        ?? Optional(FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".local/share"))
+    else { return nil }
+    return xdgData.appendingPathComponent("akaza/SKK-JISYO.L")
+}
+
 class AkazaServerProcess {
     private var process: Process?
     private(set) var stdinPipe: Pipe?
@@ -9,6 +20,44 @@ class AkazaServerProcess {
     private var shouldRestart = true
 
     var onRestart: (() -> Void)?
+
+    func downloadSKKDictIfNeeded(completion: @escaping () -> Void) {
+        guard let dest = skkJisyoLPath() else {
+            completion()
+            return
+        }
+        guard !FileManager.default.fileExists(atPath: dest.path) else {
+            completion()
+            return
+        }
+
+        NSLog("AkazaIME: SKK-JISYO.L not found, downloading...")
+        let dirURL = dest.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
+
+        guard let url = URL(string: skkJisyoLURL) else {
+            completion()
+            return
+        }
+        URLSession.shared.downloadTask(with: url) { tmpURL, _, error in
+            if let error = error {
+                NSLog("AkazaIME: failed to download SKK-JISYO.L: \(error)")
+                completion()
+                return
+            }
+            guard let tmpURL = tmpURL else {
+                completion()
+                return
+            }
+            do {
+                try FileManager.default.moveItem(at: tmpURL, to: dest)
+                NSLog("AkazaIME: SKK-JISYO.L downloaded to \(dest.path)")
+            } catch {
+                NSLog("AkazaIME: failed to save SKK-JISYO.L: \(error)")
+            }
+            completion()
+        }.resume()
+    }
 
     func start() {
         let serverPath = Bundle.main.bundlePath + "/Contents/MacOS/akaza-server"

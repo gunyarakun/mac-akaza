@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
-use libakaza::config::EngineConfig;
+use libakaza::config::{DictConfig, DictEncoding, DictUsage, EngineConfig};
 use libakaza::engine::bigram_word_viterbi_engine::BigramWordViterbiEngineBuilder;
 use libakaza::graph::reranking::ReRankingWeights;
 use libakaza::user_side_data::user_data::UserData;
@@ -31,9 +31,22 @@ fn main() -> Result<()> {
         UserData::load_from_default_path().unwrap_or_default(),
     ));
 
+    let mut dicts: Vec<DictConfig> = Vec::new();
+    if let Ok(basedir) = xdg::BaseDirectories::with_prefix("akaza") {
+        if let Some(path) = basedir.find_data_file("SKK-JISYO.L") {
+            info!("Found SKK-JISYO.L: {}", path.display());
+            dicts.push(DictConfig {
+                path: path.to_string_lossy().to_string(),
+                encoding: DictEncoding::EucJp,
+                dict_type: libakaza::config::DictType::SKK,
+                usage: DictUsage::Normal,
+            });
+        }
+    }
+
     let config = EngineConfig {
         model: model_dir.clone(),
-        dicts: vec![],
+        dicts,
         dict_cache: true,
         reranking_weights: ReRankingWeights::default(),
     };
