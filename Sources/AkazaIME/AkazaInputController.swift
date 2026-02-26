@@ -259,7 +259,7 @@ class AkazaInputController: IMKInputController {
         guard yomi != latestSuggestYomi else { return }
 
         latestSuggestYomi = yomi
-        let requestID = akazaClient.convertKBestAsync(yomi: yomi, maxPaths: 9) { [weak self] paths in
+        let requestID = akazaClient.convertKBestAsync(yomi: yomi, maxPaths: Settings.shared.suggestMaxPaths) { [weak self] paths in
             guard let self = self else { return }
             guard case .composing = self.inputState else { return }
             guard let paths = paths, !paths.isEmpty else { return }

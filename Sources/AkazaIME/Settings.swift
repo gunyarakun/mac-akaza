@@ -18,4 +18,14 @@ class Settings {
         get { defaults.stringArray(forKey: "additionalDictPaths") ?? [] }
         set { defaults.set(newValue, forKey: "additionalDictPaths") }
     }
+
+    // サジェスト候補の最大パス数。k=9 は速度が遅いため k=5 をデフォルトとする (2026-02-26)
+    // defaults write com.github.tokuhirom.inputmethod.Japanese.Akaza suggestMaxPaths -int 5
+    var suggestMaxPaths: Int {
+        get {
+            let value = defaults.integer(forKey: "suggestMaxPaths")
+            return value > 0 ? value : 5
+        }
+        set { defaults.set(newValue, forKey: "suggestMaxPaths") }
+    }
 }
