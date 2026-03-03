@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Select Xcode 16.2
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+
+      - name: Import Code-Signing Certificates
+        uses: apple-actions/import-codesign-certs@63fff01cd422d4b7b855d40ca1e9d34d2de9427d # v3.0.0
+        with:
+          p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
+          p12-password: ${{ secrets.CERTIFICATES_P12_PASSWORD }}
+
+      - name: Install Rust 1.93.0
+        run: |
+          rustup install 1.93.0
+          rustup default 1.93.0
+
+      - name: Build universal binary
+        run: make build-universal
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Bundle app
+        run: make bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Sign app bundle
+        run: |
+          APP="out/Akaza.app"
+          SIGN_IDENTITY="Developer ID Application"
+          codesign --force --options runtime --sign "$SIGN_IDENTITY" --timestamp \
+            "$APP/Contents/MacOS/akaza-server"
+          codesign --force --options runtime --sign "$SIGN_IDENTITY" --timestamp \
+            "$APP/Contents/MacOS/AkazaIME"
+          codesign --force --options runtime --sign "$SIGN_IDENTITY" --timestamp \
+            "$APP"
+
+      - name: Create zip for notarization
+        run: ditto -c -k --keepParent out/Akaza.app Akaza-notarize.zip
+
+      - name: Notarize
+        run: |
+          SUBMISSION_ID=$(xcrun notarytool submit Akaza-notarize.zip \
+            --apple-id "${{ secrets.APPLE_ID }}" \
+            --password "${{ secrets.APPLE_ID_PASSWORD }}" \
+            --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+            --wait \
+            --output-format json | jq -r '.id')
+          echo "Submission ID: $SUBMISSION_ID"
+          xcrun notarytool log "$SUBMISSION_ID" \
+            --apple-id "${{ secrets.APPLE_ID }}" \
+            --password "${{ secrets.APPLE_ID_PASSWORD }}" \
+            --team-id "${{ secrets.APPLE_TEAM_ID }}"
+
+      - name: Staple notarization ticket
+        run: xcrun stapler staple out/Akaza.app
+
+      - name: Create release zip
+        run: ditto -c -k --keepParent out/Akaza.app Akaza.zip
+
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" Akaza.zip --clobber
