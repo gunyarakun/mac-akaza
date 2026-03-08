@@ -17,11 +17,7 @@ let package = Package(
             name: "AkazaIMETests",
             dependencies: ["AkazaIME"],
             path: "Tests/AkazaIMETests",
-            exclude: ["AkazaInputControllerBackspaceModifierTests.swift"],
-            sources: [
-                "CandidateWindowVisibilityPolicyTests.swift",
-                "SettingsTests.swift"
-            ]
+            exclude: ["AkazaInputControllerBackspaceModifierTests.swift"]
         )
     ]
 )
