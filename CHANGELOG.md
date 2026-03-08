@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2026.308.0](https://github.com/akaza-im/mac-akaza/compare/v2026.304.0...v2026.308.0) - 2026-03-08
+- Add predictive candidate visibility setting by @nyuichi in https://github.com/akaza-im/mac-akaza/pull/63
+- fix: remove redundant sources list from test target in Package.swift by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/69
+- fix: duplicate candidate navigation jump (#64) by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/70
+
 ## [v2026.304.0](https://github.com/akaza-im/mac-akaza/compare/v2026.303.0...v2026.304.0) - 2026-03-04
 - fix: converting 状態で Backspace を押すと空文字がコミットされるバグを修正 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/61
 
